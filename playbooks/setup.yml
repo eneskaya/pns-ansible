@@ -1,0 +1,168 @@
+---
+
+- name: "Setup Containers"
+  hosts: all:!fw
+  tags: setup
+  gather_facts: no
+
+  tasks:
+    - name: apt-get update
+      apt:
+        update_cache: yes
+        cache_valid_time: 7200
+
+    - name: Install packages (iptables, netcat-openbsd, vim, traceroute)
+      apt:
+        name: ['iptables', 'netcat-openbsd', 'vim', 'traceroute']
+        state: present
+
+- name: "Setup FWs"
+  hosts: fw
+  tags: setup
+  gather_facts: no
+
+  tasks:
+    - name: apt-get update
+      apt:
+        update_cache: yes
+        cache_valid_time: 7200
+    - name: Install (iptables, vim)
+      apt:
+        name: ['iptables', 'vim']
+        state: present
+
+- name: "Install smtp on server"
+  hosts: server3
+  tags: setup
+
+  tasks:
+    - name: install mailutils
+      apt:
+        name: mailutils
+        state: present
+    - name: start postfix
+      apt:
+        name: postfix
+        state: present
+
+- name: "Install imap on server"
+  hosts: server4
+  tags: setup
+
+  tasks:
+    - name: install dovecot-imapd
+      apt:
+        name: dovecot-imapd
+        state: present
+
+- name: "Setup server2 wigh nginx"
+  hosts: server2
+  tags: setup
+
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+    - name: Start service nginx, if not started
+      service:
+        name: nginx
+        state: started
+
+- name: "Setup backend3 wigh NTP server"
+  hosts: backend3
+  tags: setup
+
+  tasks:
+    - name: Install NTP
+      apt:
+        name: ntp
+        state: present
+    - name: Start service ntp, if not started
+      service:
+        name: ntp
+        state: started
+
+- name: "Setup backend2 with Samba"
+  hosts: backend2
+  tags: setup
+
+  tasks:
+    - name: Install samba
+      apt:
+        name: samba
+        state: present
+    - name: Start smbd
+      service:
+        name: smbd
+        state: started
+
+- name: "Setup backend1 with mysql"
+  hosts: backend1
+  tags: setup
+
+  tasks:
+    - name: Install mysql-server
+      apt:
+        name: mysql-server
+        state: present
+    - name: Start mysql
+      service:
+        name: mysql
+        state: started
+
+- name: "Setup client1 with DNS"
+  hosts: backend4
+  tags: setup
+
+  tasks:
+    - name: Install bind9
+      apt:
+        name: bind9
+        state: present
+
+- name: "Install tinyproxy server1"
+  hosts: server1
+  tags: [setup, proxy]
+
+  tasks:
+    - name: install tinyproxy
+      apt:
+        name: tinyproxy
+        state: present
+    - name: place the conf
+      template:
+        src: ../tinyproxy.conf.j2
+        dest: /etc/tinyproxy.conf
+        owner: root
+        group: root
+        mode: '0644'
+    - name: start tinyproxy service
+      service:
+        name: tinyproxy
+        state: started
+
+- name: "Proxy configuration on clients"
+  hosts: client
+  tags: [setup, proxy]
+
+  tasks:
+    - name: place the environment variables
+      template:
+        src: ../client-proxy.j2
+        dest: /root/proxyenv.conf
+        owner: root
+        group: root
+    - name: Set ENV Vars for client proxy information in .bahsrc
+      lineinfile:
+        path: /root/.bashrc
+        line: "export HTTP_PROXY={{ hostvars['server1']['ansible_host'] }}:8888"
+        insertbefore: EOF
+    - lineinfile:
+        path: /root/.bashrc
+        line: "export HTTPS_PROXY={{ hostvars['server1']['ansible_host'] }}:8889"
+        insertbefore: EOF
+    - lineinfile:
+        path: /root/.bashrc
+        line: "export NO_PROXY=localhost,127.0.0.1"
+        insertbefore: EOF

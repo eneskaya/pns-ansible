@@ -1,0 +1,72 @@
+---
+
+### ROUTING SETUP ###
+
+- name: "Setup IP routing for world"
+  hosts: world # 52
+  tags: routing
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['server1']['net'] }} gw {{ hostvars['fwworld']['worldnet_ip'] }} eth0
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwworld']['worldnet_ip'] }} eth0
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwworld']['worldnet_ip'] }} eth0
+
+- name: "Setup IP routing for server"
+  hosts: server # 53
+  tags: routing
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwworld']['dmz_ip'] }} eth0
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }} eth0
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }} eth0
+
+- name: "Setup IP routing for backend"
+  hosts: backend # 54
+  tags: routing
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwintern']['backendland_ip'] }} eth0
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwintern']['backendland_ip'] }} eth0
+        route add -net {{ hostvars['server1']['net'] }} gw {{ hostvars['fwintern']['backendland_ip'] }} eth0
+
+- name: "Setup IP routing for client"
+  hosts: client # 55
+  tags: routing
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwintern']['corpnet_ip'] }} eth0
+        route add -net {{ hostvars['server1']['net'] }} gw {{ hostvars['fwintern']['corpnet_ip'] }} eth0
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwintern']['corpnet_ip'] }} eth0
+
+- name: "Setup IP routing for fwintern"
+  hosts: fwintern
+  tags: [ routing, routingfw ]
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwworld']['dmz_ip'] }}
+
+- name: "Setup IP routing for fwworld"
+  hosts: fwworld
+  tags: [ routing, routingfw ]
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }}
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }}

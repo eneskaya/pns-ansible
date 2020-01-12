@@ -1,0 +1,5 @@
+Allow 127.0.0.1
+Allow localhost
+Allow {{ hostvars['client1']['net'] }}
+LogLevel Info
+LogFile /var/log/tinyproxy.log

@@ -1,0 +1,44 @@
+[world]
+world1		ansible_user=root	ansible_host=$world1_ip	pns_hostname=$world1_hostname_id
+world2		ansible_user=root	ansible_host=$world2_ip	pns_hostname=$world2_hostname_id
+world3		ansible_user=root	ansible_host=$world3_ip	pns_hostname=$world3_hostname_id
+world4		ansible_user=root	ansible_host=$world4_ip	pns_hostname=$world4_hostname_id
+
+[server]
+server1		ansible_user=root	ansible_host=$server1_ip	pns_hostname=$server1_hostname_id
+server2		ansible_user=root	ansible_host=$server2_ip	pns_hostname=$server2_hostname_id
+server3		ansible_user=root	ansible_host=$server3_ip	pns_hostname=$server3_hostname_id
+server4		ansible_user=root	ansible_host=$server4_ip	pns_hostname=$server4_hostname_id
+server5		ansible_user=root	ansible_host=$server5_ip	pns_hostname=$server5_hostname_id
+server6		ansible_user=root	ansible_host=$server6_ip	pns_hostname=$server6_hostname_id
+
+[backend]
+backend1	ansible_user=root	ansible_host=$backend1_ip	pns_hostname=$backend1_hostname_id
+backend2	ansible_user=root	ansible_host=$backend2_ip	pns_hostname=$backend2_hostname_id
+backend3	ansible_user=root	ansible_host=$backend3_ip	pns_hostname=$backend3_hostname_id
+backend4	ansible_user=root	ansible_host=$backend4_ip	pns_hostname=$backend4_hostname_id
+backend5	ansible_user=root	ansible_host=$backend5_ip	pns_hostname=$backend5_hostname_id
+
+[client]
+client1		ansible_user=root	ansible_host=$client1_ip	pns_hostname=$client1_hostname_id
+client2		ansible_user=root	ansible_host=$client2_ip	pns_hostname=$client2_hostname_id
+client3		ansible_user=root	ansible_host=$client3_ip	pns_hostname=$client3_hostname_id
+client4		ansible_user=root	ansible_host=$client4_ip	pns_hostname=$client4_hostname_id
+client5		ansible_user=root	ansible_host=$client5_ip	pns_hostname=$client5_hostname_id
+client6		ansible_user=root	ansible_host=$client6_ip	pns_hostname=$client6_hostname_id
+
+[fw]
+fwintern	ansible_user=root	ansible_host=$fwintern_ip 	dmz_ip=$fwintern_dmz_ip			corpnet_ip=$fwintern_corpnet_ip		backendland_ip=$fwintern_backendland_ip 	pns_hostname=$fwintern_hostname_id
+fwworld		ansible_user=root	ansible_host=$fwworld_ip 	worldnet_ip=$fwworld_worldnet_ip	dmz_ip=$fwworld_dmz_ip		pns_hostname=$fwworld_hostname_id
+
+[world:vars]
+net=$worldnet_iprange
+
+[server:vars]
+net=$dmz_iprange
+
+[backend:vars]
+net=$backendland_iprange
+
+[client:vars]
+net=$corpnet_iprange

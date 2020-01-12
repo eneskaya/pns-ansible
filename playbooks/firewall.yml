@@ -1,0 +1,617 @@
+---
+
+######## NETWORK FIREWALLS ##########
+
+- name: "Set FORWARD Default policy to DROP"
+  hosts: fwintern,fwworld
+  tags: network
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: FORWARD
+        policy: DROP
+
+
+### die externen Services (Webserver, SMTP) aus dem WORLD zu erreichen sind.
+
+- name: "Accept forwarded connections on fwworld from world -> dmz"
+  hosts: fwworld
+  tags: network
+  gather_facts: no
+
+  tasks:
+    # http 80
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '80'
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # From world
+        destination: "{{ hostvars['server1']['net'] }}" # To dmz
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '80'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # To world
+        destination: "{{ hostvars['world1']['net'] }}" # From dmz
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+    # http 443
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '443'
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # From world
+        destination: "{{ hostvars['server1']['net'] }}" # To dmz
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '443'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # To world
+        destination: "{{ hostvars['world1']['net'] }}" # From dmz
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+    
+    # smtp 25
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '25'
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # From world
+        destination: "{{ hostvars['server1']['net'] }}" # To dmz
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '25'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # To world
+        destination: "{{ hostvars['world1']['net'] }}" # From dmz
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+    # smtp 465
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '465'
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # From world
+        destination: "{{ hostvars['server1']['net'] }}" # To dmz
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '465'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # To world
+        destination: "{{ hostvars['world1']['net'] }}" # From dmz
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+    # smtp 587
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '587'
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # From world
+        destination: "{{ hostvars['server1']['net'] }}" # To dmz
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '587'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # To world
+        destination: "{{ hostvars['world1']['net'] }}" # From dmz
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+    # imap 993
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '993'
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # From world
+        destination: "{{ hostvars['server1']['net'] }}" # To dmz
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '993'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # To world
+        destination: "{{ hostvars['world1']['net'] }}" # From dmz
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+# ... Clients auf das „Web“ zugreifen können.
+
+- name: "Clients can reach web (fwintern)"
+  hosts: fwintern
+  tags: network
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['client1']['net'] }}" # from corpnet
+        destination: "{{ hostvars['world1']['net'] }}" # to world
+        in_interface: 'eth1'
+        out_interface: 'eth2'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # from world
+        destination: "{{ hostvars['client1']['net'] }}" # to corpnet
+        in_interface: 'eth2'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+- name: "Clients can reach web (fwworld)"
+  hosts: fwworld
+  tags: network
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['client1']['net'] }}" # from corpnet
+        destination: "{{ hostvars['world1']['net'] }}" # to world
+        in_interface: 'eth0'
+        out_interface: 'eth1'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['world1']['net'] }}" # from world
+        destination: "{{ hostvars['client1']['net'] }}" # to corpnet
+        in_interface: 'eth1'
+        out_interface: 'eth0'
+        jump: ACCEPT
+
+# ... Kein Zugriff aus dem „Web“ auf die Clients im „CorpNet“ ...
+
+# - name: "no access from world to corpnet"
+#   hosts: fwworld
+#   tags: network
+#   gather_facts: no
+
+#   tasks:
+#     - iptables:
+#         chain: FORWARD
+#         action: append
+#         protocol: tcp
+#         source: "{{ hostvars['world1']['net'] }}" # from world
+#         destination: "{{ hostvars['client1']['net'] }}" # to corpnet
+#         in_interface: 'eth2'
+#         out_interface: 'eth1'
+#         jump: DROP
+
+# ... Admin-Zugänge die DMZ
+
+- name: "Clients can connect to DMZ with SSH/22"
+  hosts: fwintern
+  tags: network
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        destination_port: '22'
+        source: "{{ hostvars['client1']['net'] }}" # from corpnet
+        destination: "{{ hostvars['server1']['net'] }}" # to dmz
+        in_interface: 'eth1'
+        out_interface: 'eth2'
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '22'
+        ctstate: ['ESTABLISHED', 'RELATED']
+        source: "{{ hostvars['server1']['net'] }}" # from dmz
+        destination: "{{ hostvars['client1']['net'] }}" # to corpnet
+        in_interface: 'eth2'
+        out_interface: 'eth1'
+        jump: ACCEPT
+
+- name: "Accept web traffic on clients"
+  hosts: client
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: INPUT
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        destination_port: '443'
+    - iptables:
+        chain: OUTPUT
+        action: append
+        protocol: tcp
+        ctstate: ['ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        source_port: '443'
+
+    - iptables:
+        chain: INPUT
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        destination_port: '80'
+    - iptables:
+        chain: OUTPUT
+        action: append
+        protocol: tcp
+        ctstate: ['ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        source_port: '80'
+
+### For Ex. 4.1
+
+- name: "Accept SSH traffic from world to DMZ"
+  hosts: fwworld
+  tags: network
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        destination_port: '22'
+        source: "{{ hostvars['world1']['net'] }}" # from world
+        destination: "{{ hostvars['server1']['net'] }}" # to dmz
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        comment: "Accept SSH traffic from world to DMZ (world -> dmz)"
+        jump: ACCEPT
+    - iptables:
+        chain: FORWARD
+        action: append
+        protocol: tcp
+        source_port: '22'
+        source: "{{ hostvars['server1']['net'] }}" # from dmz
+        destination: "{{ hostvars['world1']['net'] }}" # to world
+        comment: "Accept SSH traffic from world to DMZ (dmz -> world)"
+        ctstate: ['ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+
+
+################################################################################
+######## HOST FIREWALLS ########################################################
+################################################################################
+
+- name: "Block everything, except 22"
+  hosts: all:!world
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: INPUT
+        action: append
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        protocol: tcp
+        destination_port: '22'
+        jump: ACCEPT
+    - iptables:
+        chain: OUTPUT
+        action: append
+        ctstate: ['ESTABLISHED', 'RELATED']
+        protocol: tcp
+        source_port: '22'
+        jump: ACCEPT
+    # Set default DROP for INPUT/OUTPUT chains
+    - iptables:
+        chain: INPUT
+        policy: DROP
+    - iptables:
+        chain: OUTPUT
+        policy: DROP
+
+- name: "accept traffic to 8888/8889 on server1 for tinyproxy"
+  hosts: server1
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: INPUT
+        action: append
+        protocol: tcp
+        jump: ACCEPT
+        destination_port: '8888'
+        source: "{{ hostvars['client1']['net'] }}"
+        destination: "{{ hostvars['world1']['net'] }}"
+    - iptables:
+        chain: OUTPUT
+        action: append
+        protocol: tcp
+        jump: ACCEPT
+        source_port: '8888'
+        destination: "{{ hostvars['client1']['net'] }}"
+        source: "{{ hostvars['world1']['net'] }}"
+
+    - iptables:
+        chain: INPUT
+        action: append
+        protocol: tcp
+        jump: ACCEPT
+        destination_port: '8889'
+        source: "{{ hostvars['client1']['net'] }}"
+        destination: "{{ hostvars['world1']['net'] }}"
+    - iptables:
+        chain: OUTPUT
+        action: append
+        protocol: tcp
+        jump: ACCEPT
+        source_port: '8889'
+        destination: "{{ hostvars['client1']['net'] }}"
+        source: "{{ hostvars['world1']['net'] }}"
+
+- name: "accept traffic to 80/443 on server2 for nginx"
+  hosts: server2
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+    - iptables:
+        chain: INPUT
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        destination_port: '443'
+    - iptables:
+        chain: OUTPUT
+        action: append
+        protocol: tcp
+        ctstate: ['ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        source_port: '443'
+
+    - iptables:
+        chain: INPUT
+        action: append
+        protocol: tcp
+        ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        destination_port: '80'
+    - iptables:
+        chain: OUTPUT
+        action: append
+        protocol: tcp
+        ctstate: ['ESTABLISHED', 'RELATED']
+        jump: ACCEPT
+        source_port: '80'
+
+- name: "accept traffic to 25,465,587 on server3 for smtp"
+  hosts: server3
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '25'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '25'
+
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '465'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '465'
+
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '587'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '587'
+
+- name: "accept traffic to 993 on server4 for imap"
+  hosts: server4
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '993'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '993'
+
+- name: "accept traffic to 3306 on backend1 for mysql"
+  hosts: backend1
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '3306'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '3306'
+  
+- name: "accept traffic to 445,139 on backend2 for samba"
+  hosts: backend2
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '445'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '445'
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: tcp
+      ctstate: ['NEW', 'ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      destination_port: '139'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: tcp
+      ctstate: ['ESTABLISHED', 'RELATED']
+      jump: ACCEPT
+      source_port: '139'
+
+- name: "accept UDP traffic to 123 on backend3 for NTP"
+  hosts: backend3
+  tags: hostfw
+  gather_facts: no
+
+  tasks:
+  - iptables:
+      chain: INPUT
+      action: append
+      protocol: udp
+      jump: ACCEPT
+      destination_port: '123'
+  - iptables:
+      chain: OUTPUT
+      action: append
+      protocol: udp
+      jump: ACCEPT
+      source_port: '123'
+
+##### FLUSH #####
+
+- name: Flush iptables
+  hosts: all
+  tags: flush
+  gather_facts: no
+
+  tasks:
+    - name: "-p OUTPUT ACCEPT"
+      iptables:
+        chain: OUTPUT
+        policy: ACCEPT
+    - name: "-p INPUT ACCEPT"
+      iptables:
+        chain: INPUT
+        policy: ACCEPT
+    - name: "-p FORWARD ACCEPT"
+      iptables:
+        chain: FORWARD
+        policy: ACCEPT
+    - name: "-F flush all"
+      iptables:
+        flush: yes

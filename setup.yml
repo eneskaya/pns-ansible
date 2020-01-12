@@ -1,0 +1,309 @@
+---
+
+### SETUP ###
+
+- name: "Setup Containers"
+  hosts: all:!fw
+  tags: setup
+
+  tasks:
+    - name: apt-get update
+      apt:
+        update_cache: yes
+        cache_valid_time: 7200
+
+    - name: Install packages (iptables, netcat-openbsd, vim, ufw)
+      apt:
+        name: ['iptables', 'netcat-openbsd', 'vim', 'ufw']
+        state: present
+
+- name: "Setup FWs"
+  hosts: fw
+  tags: setup
+
+  tasks:
+    - name: apt-get update
+      apt:
+        update_cache: yes
+        cache_valid_time: 7200
+    - name: Install ufw
+      apt:
+        name: ['ufw', 'iptables', 'vim']
+        state: present
+
+- name: "Setup world1 wigh nginx"
+  hosts: world1
+  tags: setup
+
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+    - name: Start service nginx, if not started
+      service:
+        name: nginx
+        state: started
+
+- name: "Setup backend3 wigh NTP server"
+  hosts: backend3
+  tags: setup
+
+  tasks:
+    - name: Install NTP
+      apt:
+        name: ntp
+        state: present
+    - name: Start service ntp, if not started
+      service:
+        name: ntp
+        state: started
+
+- name: "Setup backend2 with Samba"
+  hosts: backend2
+  tags: setup
+
+  tasks:
+    - name: Install samba
+      apt:
+        name: samba
+        state: present
+    - name: Start smbd
+      service:
+        name: smbd
+        state: started
+
+- name: "Setup backend1 with mysql"
+  hosts: backend1
+  tags: setup
+
+  tasks:
+    - name: Install mysql-server
+      apt:
+        name: mysql-server
+        state: present
+    - name: Start mysql
+      service:
+        name: mysql
+        state: started
+
+- name: "Setup client1 with DNS"
+  hosts: client1
+  tags: setup
+
+  tasks:
+    - name: Install bind9
+      apt:
+        name: bind9
+        state: present
+
+- name: "Setup server1 with Squid in DMZ"
+  hosts: server1,server2,server3
+  tags: [ setup, squid ]
+
+  tasks:
+    - name: Install squid
+      apt:
+        name: squid
+        state: present
+    - name: Place squid config file
+      template:
+        src: squid.conf.j2
+        dest: /etc/squid/squid.conf
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Start squid
+      service:
+        name: squid
+        state: started
+
+### FIREWALLS ###
+
+- name: "Forwarding allowed on FWs"
+  hosts: fw
+  tags: firewall
+
+  tasks:
+    - ufw:
+        rule: allow
+        route: yes
+
+- name: "Setup all firewalls to drop traffic (except 22)"
+  hosts: all
+  tags: firewall
+
+  tasks:
+    - name: First, disable ufw
+      ufw:
+        state: disabled
+    - name: Allow access to port 22 only
+      ufw:
+        rule: allow
+        port: '22'
+    - name: Block everything else
+      ufw:
+        state: enabled
+        policy: deny
+
+- name: "Allow 3128 for Squid Proxy"
+  hosts: server1,server2,server3
+  tags: firewall
+
+  tasks:
+    - ufw:
+        rule: allow
+        port: '3128'
+
+- name: "Setup firewall for world1"
+  hosts: world1
+  tags: firewall
+
+  tasks:
+    - name: Allow traffic for 80
+      ufw:
+        rule: allow
+        port: '80'
+    - name: Allow traffic for 443
+      ufw:
+        rule: allow
+        port: '443'
+
+- name: "Setup firewall for world2"
+  hosts: world2
+  tags: firewall
+
+  tasks:
+    - name: Allow traffic for 25
+      ufw:
+        rule: allow
+        port: '25'
+    - name: Allow traffic for 465
+      ufw:
+        rule: allow
+        port: '465'
+    - name: Allow traffic for 587
+      ufw:
+        rule: allow
+        port: '587'
+    - name: Allow traffic for 993
+      ufw:
+        rule: allow
+        port: '993'
+
+- name: "Setup firewall for backend1"
+  hosts: backend1
+  tags: firewall
+
+  tasks:
+    - name: Allow traffic for 3306
+      ufw:
+        rule: allow
+        port: '3306'
+
+- name: "Setup firewall for backend2"
+  hosts: backend2
+  tags: firewall
+
+  tasks:
+    - name: Allow traffic for 445
+      ufw:
+        rule: allow
+        port: '445'
+    - name: Allow traffic for 139
+      ufw:
+        rule: allow
+        port: '139'
+
+- name: "Setup firewall for backend3"
+  hosts: backend3
+  tags: firewall
+
+  tasks:
+    - name: Allow traffic for 123
+      ufw:
+        rule: allow
+        port: '445'
+        proto: udp
+
+### Forward traffic to DMZ server1 (Aufg. 2.4)
+
+- name: Forward traffic to DMZ server1 (Aufg. 2.4)
+  hosts: fwintern
+  tags: [ firewall, forward ]
+
+  tasks:
+    - iptables:
+        action: append
+        chain: PREROUTING
+        table: nat
+        protocol: tcp
+        destination_port: '80'
+        jump: DNAT
+        to_destination: "{{ hostvars['server1']['ansible_host'] }}:3128"
+        state: present
+    - iptables:
+        action: append
+        chain: POSTROUTING
+        table: nat
+        jump: MASQUERADE
+        state: present
+
+### ROUTING SETUP ###
+
+- name: "Setup IP routing for world"
+  hosts: world # 52
+  tags: routing
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['server1']['net'] }} gw {{ hostvars['fwworld']['worldnet_ip'] }} eth0
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwworld']['worldnet_ip'] }} eth0
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwworld']['worldnet_ip'] }} eth0
+
+- name: "Setup IP routing for server"
+  hosts: server # 53
+  tags: routing
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwworld']['dmz_ip'] }} eth0
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }} eth0
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }} eth0
+
+- name: "Setup IP routing for backend"
+  hosts: backend # 54
+  tags: routing
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwintern']['backendland_ip'] }} eth0
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwintern']['backendland_ip'] }} eth0
+        route add -net {{ hostvars['server1']['net'] }} gw {{ hostvars['fwintern']['backendland_ip'] }} eth0
+
+- name: "Setup IP routing for client"
+  hosts: client # 55
+  tags: routing
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwintern']['corpnet_ip'] }} eth0
+        route add -net {{ hostvars['server1']['net'] }} gw {{ hostvars['fwintern']['corpnet_ip'] }} eth0
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwintern']['corpnet_ip'] }} eth0
+
+- name: "Setup IP routing for fwintern"
+  hosts: fwintern
+  tags: [ routing, routingfw ]
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['world1']['net'] }} gw {{ hostvars['fwworld']['dmz_ip'] }}
+
+- name: "Setup IP routing for fwworld"
+  hosts: fwworld
+  tags: [ routing, routingfw ]
+
+  tasks:
+    - shell: |
+        route add -net {{ hostvars['backend1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }}
+        route add -net {{ hostvars['client1']['net'] }} gw {{ hostvars['fwintern']['dmz_ip'] }}

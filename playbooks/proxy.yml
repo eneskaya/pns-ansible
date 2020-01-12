@@ -1,0 +1,14 @@
+---
+
+- name: Place the proxy conf on clients
+  hosts: client
+
+  tasks:
+    - name: place the conf
+      template:
+        src: ../client-proxy.j2
+        dest: /home/root/tinyproxy.conf
+        owner: root
+        group: root
+    - name: source that shit
+      shell: source /home/root/tinyproxy.conf
