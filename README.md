@@ -13,4 +13,4 @@ Make sure your at the project root directory.
 
 1. Run `ansible-playbook -i inventory playbooks/setup.yml`
 1. Run `ansible-playbook -i inventory playbooks/routing.yml`. (This can be only run once, every successive run will result in an error, but nothing bad will happen. The routes already exist and can only be added once)
-1. Run `ansible-playbook --skip-tags -i inventory playbooks/firewall.yml`
+1. Run `ansible-playbook --skip-tags flush -i inventory playbooks/firewall.yml`
